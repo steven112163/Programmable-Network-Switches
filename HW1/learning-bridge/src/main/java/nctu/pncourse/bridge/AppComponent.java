@@ -113,6 +113,8 @@ public class AppComponent implements SomeInterface {
     private static final int DEFAULT_TIMEOUT = 10;
     private static final int DEFAULT_PRIORITY = 50000;
 
+    private final TopologyListener topologyListener = new InternalTopologyListener();
+
     private ExecutorService blackHoleExecutor;
 
     @Activate
@@ -120,6 +122,7 @@ public class AppComponent implements SomeInterface {
         cfgService.registerProperties(getClass());
         app_id = coreService.registerApplication("nctu.pncourse.bridge");
         packetService.addProcessor(processor, PacketProcessor.director(2));
+        topologyService.addListener(topologyListener);
         requestsPackets();
         log.info("Started");
     }
@@ -130,6 +133,7 @@ public class AppComponent implements SomeInterface {
         flowRuleService.removeFlowRulesById(app_id);
         packetService.removeProcessor(processor);
         processor = null;
+        topologyService.removeListener(topologyListener);
         cancelPackets();
         log.info("Stopped");
     }
@@ -358,6 +362,7 @@ public class AppComponent implements SomeInterface {
         }
     }
 
+    /** Blackhole fixing functions from ReactiveForwarding */
     private void fixBlackhole(ConnectPoint egress) {
         Set<FlowEntry> rules = getFlowRulesFrom(egress);
         Set<SrcDstPair> pairs = findSrcDstPairs(rules);

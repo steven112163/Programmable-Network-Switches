@@ -40,10 +40,13 @@ import org.onosproject.core.CoreService;
 
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.Path;
+import org.onosproject.net.Host;
+import org.onosproject.net.HostId;
 
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketContext;
+import org.onosproject.net.packet.InboundPacket;
 
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.TrafficSelector;
@@ -59,21 +62,25 @@ import java.util.Set;
  * Skeletal ONOS application component.
  */
 @Component(immediate = true,
-           service = {SomeInterface.class},
-           property = {
-               "someProperty=Some Default String Value",
-           })
+        service = {SomeInterface.class},
+        property = {
+                "someProperty=Some Default String Value",
+        })
 public class AppComponent implements SomeInterface {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    /** Some configurable property. */
+    /**
+     * Some configurable property.
+     */
     private String someProperty;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ComponentConfigService cfgService;
 
-    /** Services for hw */
+    /**
+     * Services for hw
+     */
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected CoreService coreService;
 
@@ -166,14 +173,83 @@ public class AppComponent implements SomeInterface {
          */
         @Override
         public void process(PacketContext context) {
+            // Stop processing if the packet is handled
+            if (context.isHandled())
+                return;
 
+            InboundPacket pkt = context.inPacket();
+            Ethernet eth_pkt = pkt.parsed();
+
+            // Don't process null packet
+            if (eth_pkt == null)
+                return;
+
+            // Don't process control packet
+            if (is_control_packet(eth_pkt))
+                return;
+
+            // Get destination host ID from destination MAC
+            // Use destination host ID to get location information about host
+            HostId dst_id = HostId.hostId(eth_pkt.getDestinationMAC());
+            Host dst = hostService.getHost(dst_id);
+
+            // Don't process the packet if it's destination MAC is LLDP
+            if (dst_id.mac().isLldp())
+                return;
+
+            // Forward to the destination if packet is on the edge switch
+            if (pkt.receivedFrom().deviceId().equals(dst.location().deviceId())) {
+                // Install rule and packet-out only if destination port is different from where the packet came
+                if (!context.inPacket().receivedFrom().port().equals(dst.location().port())) {
+                    log.info("Packet reached destination switch {}", dst.location().deviceId());
+                    install_rule(context, dst.location().port());
+                }
+                return;
+            }
+
+            // Find path to the destination
+            Set<Path> paths;
+            paths = topologyService.getPaths(topologyService.currentTopology(),
+                    pkt.receivedFrom().deviceId(), dst.location().deviceId());
+
+            // Flood if there is no path
+            if (paths.isEmpty()) {
+                log.warn("Flood the packet");
+                flood(context);
+                return;
+            }
+
+            // Pick a path that doesn't lead back to the where the packet came from
+            Path path = pick_forward_path_if_possible(paths, pkt.receivedFrom().port());
+
+            // Flood if it doesn't know how to get to the destination
+            if (path == null) {
+                log.warn("Doesn't know how to forward src: {}, dst: {} from switch {}", eth_pkt.getSourceMAC(),
+                        eth_pkt.getDestinationMAC(), pkt.receivedFrom());
+                flood(context);
+                return;
+            }
+
+            // Install rule and packet-out
+            install_rule(context, path.src().port());
+        }
+
+        /**
+         * Check whether it's control packet
+         *
+         * @param eth_pkt Ethernet packet
+         * @return boolean
+         */
+        private boolean is_control_packet(Ethernet eth_pkt) {
+            short type = eth_pkt.getEtherType();
+            return type == Ethernet.TYPE_LLDP || type == Ethernet.TYPE_BSN;
         }
 
         /**
          * Output packet from the port
          *
          * @param context content of the incoming message
-         * @param port output port number
+         * @param port    output port number
          */
         private void packet_out(PacketContext context, PortNumber port) {
             context.treatmentBuilder().setOutput(port);
@@ -196,7 +272,7 @@ public class AppComponent implements SomeInterface {
          * Pick a path that doesn't lead back to where the packet came from
          *
          * @param paths all paths that lead to the destination
-         * @param port the port where packet came from
+         * @param port  the port where packet came from
          */
         private Path pick_forward_path_if_possible(Set<Path> paths, PortNumber port) {
             for (Path path : paths) {
@@ -207,10 +283,10 @@ public class AppComponent implements SomeInterface {
         }
 
         /**
-         * Install flow rules on a switch
+         * Install flow rules on a switch and packet-out
          *
          * @param context content of the incoming packet
-         * @param port output port to be defined in the flow rule
+         * @param port    output port to be defined in the flow rule
          */
         private void install_rule(PacketContext context, PortNumber port) {
 

@@ -18,6 +18,10 @@ package nctu.pncourse.bridge;
 import com.google.common.collect.ImmutableSet;
 import org.onlab.packet.Ethernet;
 import org.onosproject.cfg.ComponentConfigService;
+import org.onosproject.net.flow.*;
+import org.onosproject.net.flowobjective.DefaultForwardingObjective;
+import org.onosproject.net.flowobjective.FlowObjectiveService;
+import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.packet.PacketPriority;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -47,10 +51,6 @@ import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.InboundPacket;
-
-import org.onosproject.net.flow.DefaultTrafficSelector;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.FlowRuleService;
 
 import org.onosproject.net.topology.TopologyService;
 
@@ -91,21 +91,28 @@ public class AppComponent implements SomeInterface {
     protected FlowRuleService flowRuleService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected FlowObjectiveService flowObjectiveService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected HostService hostService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected TopologyService topologyService;
 
     // App ID
-    private ApplicationId appId;
+    private ApplicationId app_id;
 
     // Packet processor
     private BridgeProcessor processor = new BridgeProcessor();
 
+    // Default flow rule parameters
+    private static final int DEFAULT_TIMEOUT = 10;
+    private static final int DEFAULT_PRIORITY = 50000;
+
     @Activate
     protected void activate() {
         cfgService.registerProperties(getClass());
-        appId = coreService.registerApplication("nctu.pncourse.bridge");
+        app_id = coreService.registerApplication("nctu.pncourse.bridge");
         packetService.addProcessor(processor, PacketProcessor.director(2));
         requestsPackets();
         log.info("Started");
@@ -114,7 +121,7 @@ public class AppComponent implements SomeInterface {
     @Deactivate
     protected void deactivate() {
         cfgService.unregisterProperties(getClass(), false);
-        flowRuleService.removeFlowRulesById(appId);
+        flowRuleService.removeFlowRulesById(app_id);
         packetService.removeProcessor(processor);
         processor = null;
         cancelPackets();
@@ -128,12 +135,12 @@ public class AppComponent implements SomeInterface {
         // Get all IPv4 packets
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4);
-        packetService.requestPackets(selector.build(), PacketPriority.REACTIVE, appId);
+        packetService.requestPackets(selector.build(), PacketPriority.REACTIVE, app_id);
 
         // Get all ARP packets
         selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_ARP);
-        packetService.requestPackets(selector.build(), PacketPriority.REACTIVE, appId);
+        packetService.requestPackets(selector.build(), PacketPriority.REACTIVE, app_id);
     }
 
     /**
@@ -143,12 +150,12 @@ public class AppComponent implements SomeInterface {
         // Cancel all IPV4 packets
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4);
-        packetService.cancelPackets(selector.build(), PacketPriority.REACTIVE, appId);
+        packetService.cancelPackets(selector.build(), PacketPriority.REACTIVE, app_id);
 
         // Cancel all ARP packets
         selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_ARP);
-        packetService.cancelPackets(selector.build(), PacketPriority.REACTIVE, appId);
+        packetService.cancelPackets(selector.build(), PacketPriority.REACTIVE, app_id);
     }
 
     @Modified
@@ -289,7 +296,34 @@ public class AppComponent implements SomeInterface {
          * @param port    output port to be defined in the flow rule
          */
         private void install_rule(PacketContext context, PortNumber port) {
+            InboundPacket pkt = context.inPacket();
+            Ethernet eth_pkt = pkt.parsed();
 
+            // Setup match fields
+            TrafficSelector selector = DefaultTrafficSelector.builder()
+                    .matchEthDst(eth_pkt.getDestinationMAC())
+                    .build();
+
+            // Setup action fields
+            TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                    .setOutput(port)
+                    .build();
+
+            // Setup flow-mod object
+            ForwardingObjective forwardingObjective = DefaultForwardingObjective.builder()
+                    .withSelector(selector)
+                    .withTreatment(treatment)
+                    .withPriority(DEFAULT_PRIORITY)
+                    .withFlag(ForwardingObjective.Flag.VERSATILE)
+                    .fromApp(app_id)
+                    .makeTemporary(DEFAULT_TIMEOUT)
+                    .add();
+
+            // Forward flow-mod object
+            flowObjectiveService.forward(context.inPacket().receivedFrom().deviceId(), forwardingObjective);
+
+            // Packet-out
+            packet_out(context, port);
         }
     }
 

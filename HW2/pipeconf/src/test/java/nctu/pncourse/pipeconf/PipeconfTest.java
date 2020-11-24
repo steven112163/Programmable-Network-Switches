@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package nctu.pncourse.bridge;
+package nctu.pncourse.pipeconf;
 
 import org.junit.After;
 import org.junit.Before;
@@ -21,20 +21,22 @@ import org.junit.Test;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.cfg.ComponentConfigAdapter;
 import org.onosproject.cfg.ConfigProperty;
+import org.onosproject.net.pi.service.PiPipeconfService;
+
+import nctu.pncourse.pipeconf.Pipeconf;
 
 import java.util.Set;
 
 /**
  * Set of tests of the ONOS application component.
  */
-public class AppComponentTest {
+public class PipeconfTest {
 
-    private AppComponent component;
+    private Pipeconf component;
 
     @Before
     public void setUp() {
-        component = new AppComponent();
-        component.cfgService = new ComponentConfigAdapter();
+        component = new Pipeconf();
         component.activate();
     }
 

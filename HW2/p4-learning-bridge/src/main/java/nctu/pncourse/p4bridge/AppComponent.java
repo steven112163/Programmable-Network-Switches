@@ -65,8 +65,12 @@ import java.util.concurrent.ExecutorService;
 /**
  * Skeletal ONOS application component.
  */
-@Component(immediate = true)
-public class AppComponent {
+@Component(immediate = true,
+        service = {SomeInterface.class},
+        property = {
+                "someProperty=Some Default String Value",
+        })
+public class AppComponent implements SomeInterface {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -171,6 +175,11 @@ public class AppComponent {
             someProperty = get(properties, "someProperty");
         }
         log.info("Reconfigured");
+    }
+
+    @Override
+    public void someMethod() {
+        log.info("Invoked");
     }
 
     /** Learning bridge processor */

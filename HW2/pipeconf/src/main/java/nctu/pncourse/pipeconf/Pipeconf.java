@@ -15,7 +15,6 @@
  */
 package nctu.pncourse.pipeconf;
 
-import com.google.common.collect.ImmutableSet;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -63,7 +62,7 @@ public final class Pipeconf {
     private static final URL BMV2_JSON_URL = Pipeconf.class.getResource("/learning_bridge.json");
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
-    private PiPipeconfService piPipeconfService;
+    protected PiPipeconfService piPipeconfService;
 
     @Activate
     protected void activate() {

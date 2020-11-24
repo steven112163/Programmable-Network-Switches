@@ -53,8 +53,20 @@
 
         <dependency>
             <groupId>org.onosproject</groupId>
-            <artifactId>onlab-osgi</artifactId>
+            <artifactId>onos-protocols-p4runtime-model</artifactId>
             <version>${onos.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-drivers-default</artifactId>
+            <version>${onos.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onlab-osgi</artifactId>
+            <version>$ {onos.version}</version>
         </dependency>
 
         <dependency>

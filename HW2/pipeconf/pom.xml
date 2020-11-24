@@ -66,7 +66,7 @@
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onlab-osgi</artifactId>
-            <version>$ {onos.version}</version>
+            <version>${onos.version}</version>
         </dependency>
 
         <dependency>

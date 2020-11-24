@@ -2,4 +2,5 @@
 *.iml
 target
 *.json
+!network-cfg.json
 *.txt

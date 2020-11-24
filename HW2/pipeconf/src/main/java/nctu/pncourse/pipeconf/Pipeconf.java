@@ -59,7 +59,8 @@ public final class Pipeconf {
 
     public static final PiPipeconfId PIPECONF_ID = new PiPipeconfId("p4-learning-bridge-pipeconf");
     private static final URL P4INFO_URL = Pipeconf.class.getResource("/learning_bridge.p4info.txt");
-    private static final URL BMV2_JSON_URL = Pipeconf.class.getResource("/learning_bridge.json");
+    private static final URL BMV2_JSON_URL = Pipeconf.class.getResource(
+            "/learning_bridge.json/learning_bridge.json");
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected PiPipeconfService piPipeconfService;

@@ -1,0 +1,96 @@
+{
+    "devices": {
+        "device:bmv2:s1": {
+            "ports": {
+                "1": {
+                    "name": "s1-eth1",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 1,
+                    "removed": false,
+                    "type": "copper"
+                },
+                "2": {
+                    "name": "s1-eth2",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 2,
+                    "removed": false,
+                    "type": "copper"
+                }
+            },
+            "basic": {
+                "managementAddress": "grpc://127.0.0.1:50001?device_id=1",
+                "driver": "bmv2",
+                "pipeconf": "nctu.pncourse.pipeconf.int"
+            }
+        },
+        "device:bmv2:s2": {
+            "ports": {
+                "1": {
+                    "name": "s2-eth1",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 1,
+                    "removed": false,
+                    "type": "copper"
+                },
+                "2": {
+                    "name": "s2-eth2",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 2,
+                    "removed": false,
+                    "type": "copper"
+                },
+                "3": {
+                    "name": "s2-eth3",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 3,
+                    "removed": false,
+                    "type": "copper"
+                }
+            },
+            "basic": {
+                "managementAddress": "grpc://127.0.0.1:50002?device_id=2",
+                "driver": "bmv2",
+                "pipeconf": "nctu.pncourse.pipeconf.int"
+            }
+        },
+        "device:bmv2:s3": {
+            "ports": {
+                "1": {
+                    "name": "s3-eth1",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 1,
+                    "removed": false,
+                    "type": "copper"
+                },
+                "2": {
+                    "name": "s3-eth2",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 2,
+                    "removed": false,
+                    "type": "copper"
+                },
+                "3": {
+                    "name": "s3-eth3",
+                    "speed": 10000,
+                    "enabled": true,
+                    "number": 3,
+                    "removed": false,
+                    "type": "copper"
+                }
+            },
+            "basic": {
+                "managementAddress": "grpc://127.0.0.1:50003?device_id=3",
+                "driver": "bmv2",
+                "pipeconf": "nctu.pncourse.pipeconf.int"
+            }
+        }
+    }
+}
+

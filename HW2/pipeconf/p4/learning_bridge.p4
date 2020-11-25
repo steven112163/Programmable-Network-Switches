@@ -9,7 +9,7 @@
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 
-const bit<9> CPU_PORT = 255;
+const egressSpec_t CPU_PORT = 255;
 
 // Ethernet header
 header ethernet_t {
@@ -25,8 +25,8 @@ header packet_in_t {
     bit<7> _padding;
 }
 
-@controller_header("packet_out")
 // Packet-out header
+@controller_header("packet_out")
 header packet_out_t {
     bit<9> egress_port;
     bit<7> _padding;
@@ -65,11 +65,8 @@ parser MyParser(packet_in packet,
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.etherType) {
-            default: accept;
-        }
+        transition accept;
     }
-
 }
 
 /*************************************************************************
@@ -119,18 +116,33 @@ control MyIngress(inout headers hdr,
         default_action = send_to_controller();
         size = 1024;
     }
+
+    table control_message {
+        key = {
+            hdr.ethernet.etherType: exact;
+        }
+        actions = {
+            send_to_controller;
+            NoAction;
+        }
+        default_action = send_to_controller();
+        size = 1024;
+    }
     
     apply {
         if (standard_metadata.ingress_port == CPU_PORT) {
             // Forward the packet in packet_out
             standard_metadata.egress_spec = hdr.packet_out.egress_port;
             hdr.packet_out.setInvalid();
-        } else if (hdr.ethernet.etherType == 0x88cc)
-            // Send LLDP packets to controller
-            send_to_controller();
-        else if (hdr.ethernet.isValid())
-            // Send valid Ethernet packets to the table
-            ethernet_exact.apply();
+        } else if (hdr.ethernet.isValid()) {
+            if (ethernet_exact.apply().hit) {
+                // Send valid Ethernet packets to the forwarding table
+                return;
+            } else {
+                // Send valid Ethernet packets to the control table
+                control_message.apply();
+            }
+        }
     }
 }
 
@@ -146,8 +158,8 @@ control MyEgress(inout headers hdr,
     }
 
     apply {
-        if (standard_metadata.egress_port == standard_metadata.ingress_port)
-            drop();
+        /*if (standard_metadata.egress_port == standard_metadata.ingress_port)
+            drop();*/
     }
 }
 

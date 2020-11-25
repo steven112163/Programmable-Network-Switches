@@ -15,20 +15,13 @@
  */
 package nctu.pncourse.pipeconf;
 
-import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Dictionary;
-import java.util.Properties;
-
-import static org.onlab.util.Tools.get;
 
 import org.onosproject.driver.pipeline.DefaultSingleTablePipeline;
 import org.onosproject.net.behaviour.Pipeliner;
@@ -55,7 +48,6 @@ public final class Pipeconf {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     /** Some configurable property. */
-    private String someProperty;
 
     public static final PiPipeconfId PIPECONF_ID = new PiPipeconfId("nctu.pncourse.pipeconf.int");
     private static final URL P4INFO_URL = Pipeconf.class.getResource("/learning_bridge.p4info.txt");
@@ -86,15 +78,6 @@ public final class Pipeconf {
         }
     }
 
-    @Modified
-    public void modified(ComponentContext context) {
-        Dictionary<?, ?> properties = context != null ? context.getProperties() : new Properties();
-        if (context != null) {
-            someProperty = get(properties, "someProperty");
-        }
-        log.info("Reconfigured");
-    }
-
     private PiPipeconf buildPipeconf() throws P4InfoParserException {
 
         final PiPipelineModel pipelineModel = P4InfoParser.parse(P4INFO_URL);
@@ -102,8 +85,8 @@ public final class Pipeconf {
         return DefaultPiPipeconf.builder()
                 .withId(PIPECONF_ID)
                 .withPipelineModel(pipelineModel)
-                .addBehaviour(PiPipelineInterpreter.class, Interpreter.class)
-                .addBehaviour(Pipeliner.class, DefaultSingleTablePipeline.class)
+                .addBehaviour(Pipeliner.class, PipelinerImpl.class)
+                .addBehaviour(PiPipelineInterpreter.class, InterpreterImpl.class)
                 .addExtension(P4_INFO_TEXT, P4INFO_URL)
                 .addExtension(BMV2_JSON, BMV2_JSON_URL)
                 .build();

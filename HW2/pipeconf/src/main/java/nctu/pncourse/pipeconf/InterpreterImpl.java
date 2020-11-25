@@ -44,6 +44,8 @@ import org.onosproject.net.pi.runtime.PiAction;
 import org.onosproject.net.pi.runtime.PiActionParam;
 import org.onosproject.net.pi.runtime.PiPacketMetadata;
 import org.onosproject.net.pi.runtime.PiPacketOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -58,11 +60,12 @@ import static org.onosproject.net.PortNumber.FLOOD;
 import static org.onosproject.net.flow.instructions.Instruction.Type.OUTPUT;
 import static org.onosproject.net.pi.model.PiPacketOperationType.PACKET_OUT;
 
-public final class Interpreter extends AbstractHandlerBehaviour implements PiPipelineInterpreter {
+public final class InterpreterImpl extends AbstractHandlerBehaviour implements PiPipelineInterpreter {
     private static final String DOT = ".";
     private static final String HDR = "hdr";
     private static final String MY_INGRESS = "MyIngress";
     private static final String ETHERNET_EXACT = "ethernet_exact";
+    private static final String CONTROL_MESSAGE = "control_message";
     private static final String EGRESS_PORT = "egress_port";
     private static final String INGRESS_PORT = "ingress_port";
     private static final String ETHERNET = "ethernet";
@@ -76,6 +79,7 @@ public final class Interpreter extends AbstractHandlerBehaviour implements PiPip
 
     // Tables
     private static final PiTableId TABLE_ETHERNET_EXACT = PiTableId.of(MY_INGRESS + DOT + ETHERNET_EXACT);
+    private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of(MY_INGRESS + DOT + CONTROL_MESSAGE);
 
     // Actions
     private static final PiActionId ACT_ID_NOP = PiActionId.of("NoAction");
@@ -90,6 +94,7 @@ public final class Interpreter extends AbstractHandlerBehaviour implements PiPip
     private static final Map<Integer, PiTableId> TABLE_MAP =
             new ImmutableMap.Builder<Integer, PiTableId>()
                     .put(0, TABLE_ETHERNET_EXACT)
+                    .put(1, TABLE_CONTROL_MESSAGE)
                     .build();
 
     // Map of header field to field ID
@@ -99,6 +104,8 @@ public final class Interpreter extends AbstractHandlerBehaviour implements PiPip
                     .put(Criterion.Type.ETH_DST, ETH_DST_ID)
                     .put(Criterion.Type.ETH_TYPE, ETH_TYPE_ID)
                     .build();
+
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Override
     public Optional<PiMatchFieldId> mapCriterionType(Criterion.Type type) {
@@ -112,8 +119,9 @@ public final class Interpreter extends AbstractHandlerBehaviour implements PiPip
 
     @Override
     public PiAction mapTreatment(TrafficTreatment treatment, PiTableId piTableId) throws PiInterpreterException {
-        if (piTableId != TABLE_ETHERNET_EXACT)
-            throw new PiInterpreterException("Can map treatments only for 'ethernet_exact' table");
+        if (!piTableId.toString().equals(TABLE_ETHERNET_EXACT.toString()) &&
+                !piTableId.toString().equals(TABLE_CONTROL_MESSAGE.toString()))
+            throw new PiInterpreterException("Can map treatments only for 'ethernet_exact' or 'control_message' table");
 
         if (treatment.allInstructions().size() == 0) {
             // 0 instructions means "NoAction"

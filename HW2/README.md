@@ -13,18 +13,16 @@ This hw implements learning bridge on P4 switches.
     ```
 2. Compile files  
     ```shell script
+    $ cd ~/<directory-of-this-hw>
     $ make build
     ```
 
-3. Load files  
+3. Load apps  
     ```shell script
-    $ make app-load
+    $ make load
     ```
-4. Upload network configuration  
-    ```shell script
-    $ make config
-    ```
-5. Start mininet 
+
+4. Start mininet 
     ```shell script
     $ sudo -E mn --custom $BMV2_MN_PY --switch onosbmv2,pipeconf=nctu.pncourse.pipeconf --controller remote,ip=127.0.0.1 --topo=tree,2
     ```

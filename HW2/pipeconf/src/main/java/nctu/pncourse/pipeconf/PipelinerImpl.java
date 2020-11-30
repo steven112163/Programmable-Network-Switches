@@ -15,44 +15,30 @@
  */
 package nctu.pncourse.pipeconf;
 
-import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 import org.onosproject.net.behaviour.NextGroup;
 import org.onosproject.net.behaviour.Pipeliner;
 import org.onosproject.net.behaviour.PipelinerContext;
 import org.onosproject.net.driver.AbstractHandlerBehaviour;
 import org.onosproject.net.flow.DefaultFlowRule;
-import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleService;
-import org.onosproject.net.flow.instructions.Instructions;
 import org.onosproject.net.flowobjective.FilteringObjective;
 import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.flowobjective.NextObjective;
 import org.onosproject.net.flowobjective.ObjectiveError;
-import org.onosproject.net.pi.model.PiActionId;
 import org.onosproject.net.pi.model.PiTableId;
-import org.onosproject.net.pi.runtime.PiAction;
-import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 
 import java.util.Collections;
 import java.util.List;
 
-import static org.onosproject.net.flow.instructions.Instruction.Type.OUTPUT;
-import static org.onosproject.net.flow.criteria.Criterion.Type.ETH_TYPE;
 import static org.slf4j.LoggerFactory.getLogger;
 
 public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner {
 
     // Tables
     private static final PiTableId TABLE_ETHERNET_FORWARD = PiTableId.of("MyIngress.ethernet_forward");
-    // private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of("MyIngress.control_message");
-
-    // Actions
-    private static final PiActionId ACT_ID_SEND_TO_CONTROLLER = PiActionId.of("MyIngress.send_to_controller");
 
     private final Logger log = getLogger(getClass());
 
@@ -78,42 +64,6 @@ public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner
         }
 
         // Whether this objective specifies an OUTPUT:CONTROLLER instruction.
-        /*final boolean hasCloneToCpuAction = obj.treatment()
-                .allInstructions().stream()
-                .filter(i -> i.type().equals(OUTPUT))
-                .map(i -> (Instructions.OutputInstruction) i)
-                .anyMatch(i -> i.port().equals(PortNumber.CONTROLLER));
-
-        // Whether this objective has ETH_TYPE matching.
-        final boolean hasEthTypeSelection = obj.selector()
-                .criteria().stream()
-                .anyMatch(i -> i.type().equals(ETH_TYPE));
-
-        final FlowRule.Builder ruleBuilder;
-        if (hasCloneToCpuAction && hasEthTypeSelection) {
-            // The objective is a control message required by ONOS.
-            final PiAction cloneToCpuAction = PiAction.builder()
-                    .withId(ACT_ID_SEND_TO_CONTROLLER)
-                    .build();
-            ruleBuilder = DefaultFlowRule.builder()
-                    .forTable(TABLE_CONTROL_MESSAGE)
-                    .forDevice(deviceId)
-                    .withSelector(obj.selector())
-                    .fromApp(obj.appId())
-                    .withPriority(obj.priority())
-                    .withTreatment(DefaultTrafficTreatment.builder()
-                            .piTableAction(cloneToCpuAction).build());
-        } else {
-            // The objective is from my app.
-            ruleBuilder = DefaultFlowRule.builder()
-                    .forTable(TABLE_ETHERNET_EXACT)
-                    .forDevice(deviceId)
-                    .withSelector(obj.selector())
-                    .fromApp(obj.appId())
-                    .withPriority(obj.priority())
-                    .withTreatment(obj.treatment());
-        }*/
-
         final FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
                 .forTable(TABLE_ETHERNET_FORWARD)
                 .forDevice(deviceId)

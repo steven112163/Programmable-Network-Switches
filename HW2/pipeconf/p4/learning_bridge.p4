@@ -114,18 +114,6 @@ control MyIngress(inout headers_t hdr,
         size = 1024;
         counters = ether_counter;
     }
-
-    /*table control_message {
-        key = {
-            hdr.ethernet.etherType: exact;
-        }
-        actions = {
-            send_to_controller;
-            NoAction;
-        }
-        default_action = send_to_controller();
-        size = 1024;
-    }*/
     
     apply {
         if (standard_metadata.ingress_port == CPU_PORT) {
@@ -133,13 +121,6 @@ control MyIngress(inout headers_t hdr,
             standard_metadata.egress_spec = hdr.packet_out.egress_port;
             hdr.packet_out.setInvalid();
         } else if (hdr.ethernet.isValid()) {
-            /*if (ethernet_exact.apply().hit) {
-                // Send valid Ethernet packets to the forwarding table
-                return;
-            } else {
-                // Send valid Ethernet packets to the control table
-                control_message.apply();
-            }*/
             ethernet_forward.apply();
         }
     }
@@ -152,13 +133,7 @@ control MyIngress(inout headers_t hdr,
 control MyEgress(inout headers_t hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    /*action drop() {
-        mark_to_drop(standard_metadata);
-    }*/
-
     apply {
-        /*if (standard_metadata.egress_port == standard_metadata.ingress_port)
-            drop();*/
         if (standard_metadata.egress_port == CPU_PORT) {
             hdr.packet_in.setValid();
             hdr.packet_in.ingress_port = standard_metadata.ingress_port;

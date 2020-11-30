@@ -24,17 +24,14 @@ $(BRIDGE_OAR):
 $(PIPE_OAR):
 	$(error Missing pipeconf app binary, run 'make app-build' first)
 
-app-reload: $(BRIDGE_OAR) $(PIPE_OAR)
+reload: $(BRIDGE_OAR) $(PIPE_OAR)
 	$(info *** Reloading ONOS apps...)
 	onos-app localhost reinstall! p4-learning-bridge/target/p4-learning-bridge-1.0-SNAPSHOT.oar
 	onos-app localhost reinstall! pipeconf/target/pipeconf-1.0-SNAPSHOT.oar
 
-app-load: $(BRIDGE_OAR) $(PIPE_OAR)
+load: $(BRIDGE_OAR) $(PIPE_OAR)
 	$(info *** Loading ONOS apps...)
 	onos-app localhost install! p4-learning-bridge/target/p4-learning-bridge-1.0-SNAPSHOT.oar
 	onos-app localhost install! pipeconf/target/pipeconf-1.0-SNAPSHOT.oar
 
 build: p4-build app-build
-
-config: network-cfg.json
-	onos-netcfg localhost network-cfg.json

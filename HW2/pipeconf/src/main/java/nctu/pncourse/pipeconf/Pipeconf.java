@@ -23,7 +23,6 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.onosproject.driver.pipeline.DefaultSingleTablePipeline;
 import org.onosproject.net.behaviour.Pipeliner;
 import org.onosproject.net.pi.model.DefaultPiPipeconf;
 import org.onosproject.net.pi.model.PiPipeconf;
@@ -49,7 +48,7 @@ public final class Pipeconf {
 
     /** Some configurable property. */
 
-    public static final PiPipeconfId PIPECONF_ID = new PiPipeconfId("nctu.pncourse.pipeconf.int");
+    public static final PiPipeconfId PIPECONF_ID = new PiPipeconfId("nctu.pncourse.pipeconf");
     private static final URL P4INFO_URL = Pipeconf.class.getResource("/learning_bridge.p4info.txt");
     private static final URL BMV2_JSON_URL = Pipeconf.class.getResource(
             "/learning_bridge.json/learning_bridge.json");

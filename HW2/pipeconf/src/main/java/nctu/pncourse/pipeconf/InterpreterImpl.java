@@ -17,7 +17,6 @@ package nctu.pncourse.pipeconf;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
 import org.onlab.util.ImmutableByteSequence;
@@ -67,7 +66,6 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
     private static final String HDR = "hdr";
     private static final String MY_INGRESS = "MyIngress";
     private static final String ETHERNET_FORWARD = "ethernet_forward";
-    // private static final String CONTROL_MESSAGE = "control_message";
     private static final String EGRESS_PORT = "egress_port";
     private static final String INGRESS_PORT = "ingress_port";
     private static final String ETHERNET = "ethernet";
@@ -81,14 +79,12 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
 
     // Tables
     private static final PiTableId TABLE_ETHERNET_FORWARD = PiTableId.of(MY_INGRESS + DOT + ETHERNET_FORWARD);
-    // private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of(MY_INGRESS + DOT + CONTROL_MESSAGE);
 
     // Actions
     private static final PiActionId ACT_ID_NOP = PiActionId.of("NoAction");
     private static final PiActionId ACT_ID_SEND_TO_CONTROLLER = PiActionId.of(MY_INGRESS + DOT + "send_to_controller");
     private static final PiActionId ACT_ID_SET_EGRESS_PORT = PiActionId.of(MY_INGRESS + DOT + "set_egress_port");
     private static final PiActionId ACT_ID_DROP = PiActionId.of(MY_INGRESS + DOT + "drop");
-    private static final PiActionId ACT_ID_FLOOD = PiActionId.of(MY_INGRESS + DOT + "flood");
 
     // Action parameters
     private static final PiActionParamId ACT_PARAM_ID_PORT = PiActionParamId.of("port");

@@ -15,6 +15,7 @@
  */
 package nctu.pncourse.pipeconf;
 
+import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.behaviour.NextGroup;
@@ -33,6 +34,8 @@ import org.onosproject.net.flowobjective.ObjectiveError;
 import org.onosproject.net.pi.model.PiActionId;
 import org.onosproject.net.pi.model.PiTableId;
 import org.onosproject.net.pi.runtime.PiAction;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 
 import java.util.Collections;
@@ -45,8 +48,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner {
 
     // Tables
-    private static final PiTableId TABLE_ETHERNET_EXACT = PiTableId.of("MyIngress.ethernet_exact");
-    private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of("MyIngress.control_message");
+    private static final PiTableId TABLE_ETHERNET_FORWARD = PiTableId.of("MyIngress.ethernet_forward");
+    // private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of("MyIngress.control_message");
 
     // Actions
     private static final PiActionId ACT_ID_SEND_TO_CONTROLLER = PiActionId.of("MyIngress.send_to_controller");
@@ -75,7 +78,7 @@ public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner
         }
 
         // Whether this objective specifies an OUTPUT:CONTROLLER instruction.
-        final boolean hasCloneToCpuAction = obj.treatment()
+        /*final boolean hasCloneToCpuAction = obj.treatment()
                 .allInstructions().stream()
                 .filter(i -> i.type().equals(OUTPUT))
                 .map(i -> (Instructions.OutputInstruction) i)
@@ -109,7 +112,15 @@ public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner
                     .fromApp(obj.appId())
                     .withPriority(obj.priority())
                     .withTreatment(obj.treatment());
-        }
+        }*/
+
+        final FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
+                .forTable(TABLE_ETHERNET_FORWARD)
+                .forDevice(deviceId)
+                .withSelector(obj.selector())
+                .fromApp(obj.appId())
+                .withPriority(obj.priority())
+                .withTreatment(obj.treatment());
 
         if (obj.permanent()) {
             ruleBuilder.makePermanent();

@@ -13,9 +13,9 @@ const egressSpec_t CPU_PORT = 255;
 
 // Ethernet header
 header ethernet_t {
-    macAddr_t dstAddr;
-    macAddr_t srcAddr;
-    bit<16>   etherType;
+    macAddr_t dst_addr;
+    macAddr_t src_addr;
+    bit<16>   ether_type;
 }
 
 // Packet-in header
@@ -36,7 +36,7 @@ struct metadata {
     /* empty */
 }
 
-struct headers {
+struct headers_t {
     ethernet_t   ethernet;
     packet_in_t  packet_in;
     packet_out_t packet_out;
@@ -47,7 +47,7 @@ struct headers {
 *************************************************************************/
 
 parser MyParser(packet_in packet,
-                out headers hdr,
+                out headers_t hdr,
                 inout metadata meta,
                 inout standard_metadata_t standard_metadata) {
 
@@ -73,7 +73,7 @@ parser MyParser(packet_in packet,
 ************   C H E C K S U M    V E R I F I C A T I O N   *************
 *************************************************************************/
 
-control MyVerifyChecksum(inout headers hdr, inout metadata meta) {   
+control MyVerifyChecksum(inout headers_t hdr, inout metadata meta) {
     apply {  }
 }
 
@@ -82,42 +82,40 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 **************  I N G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
 
-control MyIngress(inout headers hdr,
+control MyIngress(inout headers_t hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
+    direct_counter(CounterType.packets) ether_counter;
+
     action drop() {
         mark_to_drop(standard_metadata);
     }
 
     action send_to_controller() {
         standard_metadata.egress_spec = CPU_PORT;
-        hdr.packet_in.setValid();
-        hdr.packet_in.ingress_port = standard_metadata.ingress_port;
     }
 
-    action ethernet_forward(egressSpec_t port) {
+    action set_egress_port(egressSpec_t port) {
         standard_metadata.egress_spec = port;
     }
 
-    action flood() {
-        standard_metadata.mcast_grp = 1;
-    }
-
-    table ethernet_exact {
+    table ethernet_forward {
         key = {
-            hdr.ethernet.dstAddr: exact;
+            hdr.ethernet.dst_addr  : ternary;
+            hdr.ethernet.ether_type: ternary;
         }
         actions = {
-            ethernet_forward;
-            flood;
+            drop;
             send_to_controller;
+            set_egress_port;
             NoAction;
         }
-        default_action = send_to_controller();
+        default_action = drop();
         size = 1024;
+        counters = ether_counter;
     }
 
-    table control_message {
+    /*table control_message {
         key = {
             hdr.ethernet.etherType: exact;
         }
@@ -127,7 +125,7 @@ control MyIngress(inout headers hdr,
         }
         default_action = send_to_controller();
         size = 1024;
-    }
+    }*/
     
     apply {
         if (standard_metadata.ingress_port == CPU_PORT) {
@@ -135,13 +133,14 @@ control MyIngress(inout headers hdr,
             standard_metadata.egress_spec = hdr.packet_out.egress_port;
             hdr.packet_out.setInvalid();
         } else if (hdr.ethernet.isValid()) {
-            if (ethernet_exact.apply().hit) {
+            /*if (ethernet_exact.apply().hit) {
                 // Send valid Ethernet packets to the forwarding table
                 return;
             } else {
                 // Send valid Ethernet packets to the control table
                 control_message.apply();
-            }
+            }*/
+            ethernet_forward.apply();
         }
     }
 }
@@ -150,16 +149,20 @@ control MyIngress(inout headers hdr,
 ****************  E G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
 
-control MyEgress(inout headers hdr,
+control MyEgress(inout headers_t hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    action drop() {
+    /*action drop() {
         mark_to_drop(standard_metadata);
-    }
+    }*/
 
     apply {
         /*if (standard_metadata.egress_port == standard_metadata.ingress_port)
             drop();*/
+        if (standard_metadata.egress_port == CPU_PORT) {
+            hdr.packet_in.setValid();
+            hdr.packet_in.ingress_port = standard_metadata.ingress_port;
+        }
     }
 }
 
@@ -167,7 +170,7 @@ control MyEgress(inout headers hdr,
 *************   C H E C K S U M    C O M P U T A T I O N   **************
 *************************************************************************/
 
-control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
+control MyComputeChecksum(inout headers_t hdr, inout metadata meta) {
      apply { }
 }
 
@@ -175,7 +178,7 @@ control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
 ***********************  D E P A R S E R  *******************************
 *************************************************************************/
 
-control MyDeparser(packet_out packet, in headers hdr) {
+control MyDeparser(packet_out packet, in headers_t hdr) {
     apply {
         packet.emit(hdr.packet_in);
         packet.emit(hdr.ethernet);

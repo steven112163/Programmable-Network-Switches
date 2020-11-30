@@ -52,11 +52,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.onlab.util.ImmutableByteSequence.copyFrom;
 import static org.onosproject.net.PortNumber.CONTROLLER;
 import static org.onosproject.net.PortNumber.FLOOD;
+import static org.onosproject.net.flow.instructions.Instruction.Type.NOACTION;
 import static org.onosproject.net.flow.instructions.Instruction.Type.OUTPUT;
 import static org.onosproject.net.pi.model.PiPacketOperationType.PACKET_OUT;
 
@@ -64,8 +66,8 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
     private static final String DOT = ".";
     private static final String HDR = "hdr";
     private static final String MY_INGRESS = "MyIngress";
-    private static final String ETHERNET_EXACT = "ethernet_exact";
-    private static final String CONTROL_MESSAGE = "control_message";
+    private static final String ETHERNET_FORWARD = "ethernet_forward";
+    // private static final String CONTROL_MESSAGE = "control_message";
     private static final String EGRESS_PORT = "egress_port";
     private static final String INGRESS_PORT = "ingress_port";
     private static final String ETHERNET = "ethernet";
@@ -74,17 +76,18 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
 
     // Fields
     private static final PiMatchFieldId INGRESS_PORT_ID = PiMatchFieldId.of(STANDARD_METADATA + DOT + "ingress_port");
-    private static final PiMatchFieldId ETH_DST_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "dstAddr");
-    private static final PiMatchFieldId ETH_TYPE_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "etherType");
+    private static final PiMatchFieldId ETH_DST_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "dst_addr");
+    private static final PiMatchFieldId ETH_TYPE_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "ether_type");
 
     // Tables
-    private static final PiTableId TABLE_ETHERNET_EXACT = PiTableId.of(MY_INGRESS + DOT + ETHERNET_EXACT);
-    private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of(MY_INGRESS + DOT + CONTROL_MESSAGE);
+    private static final PiTableId TABLE_ETHERNET_FORWARD = PiTableId.of(MY_INGRESS + DOT + ETHERNET_FORWARD);
+    // private static final PiTableId TABLE_CONTROL_MESSAGE = PiTableId.of(MY_INGRESS + DOT + CONTROL_MESSAGE);
 
     // Actions
     private static final PiActionId ACT_ID_NOP = PiActionId.of("NoAction");
     private static final PiActionId ACT_ID_SEND_TO_CONTROLLER = PiActionId.of(MY_INGRESS + DOT + "send_to_controller");
-    private static final PiActionId ACT_ID_ETHERNET_FORWARD = PiActionId.of(MY_INGRESS + DOT + "ethernet_forward");
+    private static final PiActionId ACT_ID_SET_EGRESS_PORT = PiActionId.of(MY_INGRESS + DOT + "set_egress_port");
+    private static final PiActionId ACT_ID_DROP = PiActionId.of(MY_INGRESS + DOT + "drop");
     private static final PiActionId ACT_ID_FLOOD = PiActionId.of(MY_INGRESS + DOT + "flood");
 
     // Action parameters
@@ -93,8 +96,7 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
     // Map of table ID to the table
     private static final Map<Integer, PiTableId> TABLE_MAP =
             new ImmutableMap.Builder<Integer, PiTableId>()
-                    .put(0, TABLE_ETHERNET_EXACT)
-                    .put(1, TABLE_CONTROL_MESSAGE)
+                    .put(0, TABLE_ETHERNET_FORWARD)
                     .build();
 
     // Map of header field to field ID
@@ -119,13 +121,12 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
 
     @Override
     public PiAction mapTreatment(TrafficTreatment treatment, PiTableId piTableId) throws PiInterpreterException {
-        if (!piTableId.toString().equals(TABLE_ETHERNET_EXACT.toString()) &&
-                !piTableId.toString().equals(TABLE_CONTROL_MESSAGE.toString()))
-            throw new PiInterpreterException("Can map treatments only for 'ethernet_exact' or 'control_message' table");
+        if (!piTableId.toString().equals(TABLE_ETHERNET_FORWARD.toString()))
+            throw new PiInterpreterException("Can map treatments only for 'ethernet_forward' table");
 
-        if (treatment.allInstructions().size() == 0) {
-            // 0 instructions means "NoAction"
-            return PiAction.builder().withId(ACT_ID_NOP).build();
+        if (treatment.allInstructions().isEmpty()) {
+            // 0 instructions means drop
+            return PiAction.builder().withId(ACT_ID_DROP).build();
         } else if (treatment.allInstructions().size() > 1) {
             // We understand treatments with only 1 instruction.
             throw new PiInterpreterException("Treatment has multiple instructions");
@@ -133,6 +134,9 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
 
         // Get the first and only instruction.
         Instruction instruction = treatment.allInstructions().get(0);
+
+        if (instruction.type() == NOACTION)
+            return PiAction.builder().withId(ACT_ID_NOP).build();
 
         if (instruction.type() != OUTPUT) {
             // We can map only instructions of type OUTPUT.
@@ -144,20 +148,14 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
         if (!port.isLogical()) {
             // Forward the packet
             return PiAction.builder()
-                    .withId(ACT_ID_ETHERNET_FORWARD)
-                    .withParameter(new PiActionParam(
-                            ACT_PARAM_ID_PORT, copyFrom(port.toLong())))
+                    .withId(ACT_ID_SET_EGRESS_PORT)
+                    .withParameter(new PiActionParam(ACT_PARAM_ID_PORT, port.toLong()))
                     .build();
         } else if (port.equals(CONTROLLER)) {
             // Send packet to controller
             return PiAction.builder()
                     .withId(ACT_ID_SEND_TO_CONTROLLER)
                     .build();
-        /*} else if (port.equals(FLOOD)) {
-            // Flood the packet
-            return PiAction.builder()
-                    .withId(ACT_ID_FLOOD)
-                    .build();*/
         } else {
             throw new PiInterpreterException(format("Output on logical port '%s' not supported", port));
         }
@@ -168,28 +166,34 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
         TrafficTreatment treatment = packet.treatment();
 
         // We support only packet-out with OUTPUT instructions.
-        if (treatment.allInstructions().size() != 1 && treatment.allInstructions().get(0).type() != OUTPUT)
-            throw new PiInterpreterException("Treatment not supported: " + treatment.toString());
+        List<OutputInstruction> outInstructions = treatment
+                .allInstructions()
+                .stream()
+                .filter(i -> i.type().equals(OUTPUT))
+                .map(i -> (OutputInstruction) i)
+                .collect(Collectors.toList());
 
-        Instruction instruction = treatment.allInstructions().get(0);
-        PortNumber port = ((OutputInstruction) instruction).port();
-        List<PiPacketOperation> piPacketOps = Lists.newArrayList();
-
-        if (!port.isLogical()) {
-            piPacketOps.add(createPiPacketOp(packet.data(), port.toLong()));
-        } else if (port.equals(FLOOD)) {
-            // Create a packet operation for each switch port.
-            // TODO: use multicast group
-            DeviceService deviceService = handler().get(DeviceService.class);
-            DeviceId deviceId = packet.sendThrough();
-            for (Port p : deviceService.getPorts(deviceId)) {
-                piPacketOps.add(createPiPacketOp(packet.data(), p.number().toLong()));
-            }
-        } else {
-            throw new PiInterpreterException(format("Output on logical port '%s' not supported", port));
+        if (treatment.allInstructions().size() != outInstructions.size()) {
+            // There are other instructions that are not of type OUTPUT.
+            throw new PiInterpreterException("Treatment not supported: " + treatment);
         }
 
-        return piPacketOps;
+        ImmutableList.Builder<PiPacketOperation> builder = ImmutableList.builder();
+        for (OutputInstruction outInst : outInstructions) {
+            if (outInst.port().isLogical() && !outInst.port().equals(FLOOD)) {
+                throw new PiInterpreterException(format(
+                        "Output on logical port '%s' not supported", outInst.port()));
+            } else if (outInst.port().equals(FLOOD)) {
+                // Create a packet operation for each switch port
+                final DeviceService deviceService = handler().get(DeviceService.class);
+                for (Port port : deviceService.getPorts(packet.sendThrough())) {
+                    builder.add(createPiPacketOp(packet.data(), port.number().toLong()));
+                }
+            } else {
+                builder.add(createPiPacketOp(packet.data(), outInst.port().toLong()));
+            }
+        }
+        return builder.build();
     }
 
     @Override
@@ -211,7 +215,8 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
         if (packetMetadata.isPresent()) {
             short s = packetMetadata.get().value().asReadOnlyBuffer().getShort();
             ConnectPoint receivedFrom = new ConnectPoint(deviceId, PortNumber.portNumber(s));
-            return new DefaultInboundPacket(receivedFrom, ethPkt, packetIn.data().asReadOnlyBuffer());
+            ByteBuffer rawData = ByteBuffer.wrap(packetIn.data().asArray());
+            return new DefaultInboundPacket(receivedFrom, ethPkt, rawData);
         } else {
             throw new PiInterpreterException(format(
                     "Missing metadata '%s' in packet-in received from '%s': %s",

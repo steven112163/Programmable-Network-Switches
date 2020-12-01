@@ -63,7 +63,6 @@ public class PipelinerImpl extends AbstractHandlerBehaviour implements Pipeliner
             obj.context().ifPresent(c -> c.onError(obj, ObjectiveError.UNSUPPORTED));
         }
 
-        // Whether this objective specifies an OUTPUT:CONTROLLER instruction.
         final FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
                 .forTable(TABLE_ETHERNET_FORWARD)
                 .forDevice(deviceId)

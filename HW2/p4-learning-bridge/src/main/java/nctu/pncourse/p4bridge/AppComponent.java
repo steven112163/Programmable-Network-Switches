@@ -217,7 +217,7 @@ public class AppComponent implements SomeInterface {
 
             // Flood if host is unknown
             if (dst == null) {
-                flood(context);
+                flood(context, pkt.receivedFrom().port());
                 return;
             }
 
@@ -226,7 +226,7 @@ public class AppComponent implements SomeInterface {
                 // Install rule and packet-out only if destination port is different from where the packet came
                 if (!context.inPacket().receivedFrom().port().equals(dst.location().port())) {
                     log.info("Packet reached destination switch {}", dst.location().deviceId());
-                    install_rule(context, dst.location().port());
+                    install_rule(context, dst.location().port(), pkt.receivedFrom().port());
                 }
                 return;
             }
@@ -239,7 +239,7 @@ public class AppComponent implements SomeInterface {
             // Flood if there is no path
             if (paths.isEmpty()) {
                 log.warn("Flood the packet");
-                flood(context);
+                flood(context, pkt.receivedFrom().port());
                 return;
             }
 
@@ -250,12 +250,12 @@ public class AppComponent implements SomeInterface {
             if (path == null) {
                 log.warn("Doesn't know how to forward src: {}, dst: {} from switch {}", eth_pkt.getSourceMAC(),
                         eth_pkt.getDestinationMAC(), pkt.receivedFrom());
-                flood(context);
+                flood(context, pkt.receivedFrom().port());
                 return;
             }
 
             // Install rule and packet-out
-            install_rule(context, path.src().port());
+            install_rule(context, path.src().port(), pkt.receivedFrom().port());
         }
     }
 
@@ -273,22 +273,24 @@ public class AppComponent implements SomeInterface {
     /**
      * Output packet from the port
      *
-     * @param context content of the incoming message
-     * @param port    output port number
+     * @param context       content of the incoming message
+     * @param output_port   output port number
+     * @param input_port    input port number
      */
-    private void packet_out(PacketContext context, PortNumber port) {
-        context.treatmentBuilder().setOutput(port);
+    private void packet_out(PacketContext context, PortNumber output_port, PortNumber input_port) {
+        context.treatmentBuilder().setOutput(output_port).writeMetadata(input_port.toLong(), 1);
         context.send();
     }
 
     /**
      * Flood the packet
      *
-     * @param context content of the incoming packet
+     * @param context       content of the incoming packet
+     * @param input_port    input port number
      */
-    private void flood(PacketContext context) {
+    private void flood(PacketContext context, PortNumber input_port) {
         if (topologyService.isBroadcastPoint(topologyService.currentTopology(), context.inPacket().receivedFrom()))
-            packet_out(context, PortNumber.FLOOD);
+            packet_out(context, PortNumber.FLOOD, input_port);
         else
             context.block();
     }
@@ -310,10 +312,11 @@ public class AppComponent implements SomeInterface {
     /**
      * Install flow rules on a switch and packet-out
      *
-     * @param context content of the incoming packet
-     * @param port    output port to be defined in the flow rule
+     * @param context       content of the incoming packet
+     * @param output_port   output port to be defined in the flow rule
+     * @param input_port    input port number
      */
-    private void install_rule(PacketContext context, PortNumber port) {
+    private void install_rule(PacketContext context, PortNumber output_port, PortNumber input_port) {
         InboundPacket pkt = context.inPacket();
         Ethernet eth_pkt = pkt.parsed();
 
@@ -324,7 +327,7 @@ public class AppComponent implements SomeInterface {
 
         // Setup action fields
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
-                .setOutput(port)
+                .setOutput(output_port)
                 .build();
 
         // Setup flow-mod object
@@ -341,7 +344,7 @@ public class AppComponent implements SomeInterface {
         flowObjectiveService.forward(context.inPacket().receivedFrom().deviceId(), forwardingObjective);
 
         // Packet-out
-        packet_out(context, port);
+        packet_out(context, output_port, input_port);
     }
 
     /** Topology Listener from ReactiveForwarding */

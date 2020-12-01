@@ -101,8 +101,10 @@ control MyIngress(inout headers_t hdr,
 
     table ethernet_forward {
         key = {
-            hdr.ethernet.dst_addr  : ternary;
-            hdr.ethernet.ether_type: ternary;
+            hdr.ethernet.dst_addr         : ternary;
+            hdr.ethernet.ether_type       : ternary;
+            standard_metadata.ingress_port: ternary;
+            hdr.ethernet.src_addr         : ternary;
         }
         actions = {
             drop;

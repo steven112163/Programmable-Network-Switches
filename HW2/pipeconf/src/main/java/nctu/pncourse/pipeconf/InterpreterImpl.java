@@ -75,6 +75,7 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
     // Fields
     private static final PiMatchFieldId INGRESS_PORT_ID = PiMatchFieldId.of(STANDARD_METADATA + DOT + "ingress_port");
     private static final PiMatchFieldId ETH_DST_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "dst_addr");
+    private static final PiMatchFieldId ETH_SRC_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "src_addr");
     private static final PiMatchFieldId ETH_TYPE_ID = PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "ether_type");
 
     // Tables
@@ -100,6 +101,7 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
             ImmutableMap.<Criterion.Type, PiMatchFieldId>builder()
                     .put(Criterion.Type.IN_PORT, INGRESS_PORT_ID)
                     .put(Criterion.Type.ETH_DST, ETH_DST_ID)
+                    .put(Criterion.Type.ETH_SRC, ETH_SRC_ID)
                     .put(Criterion.Type.ETH_TYPE, ETH_TYPE_ID)
                     .build();
 
@@ -180,10 +182,12 @@ public final class InterpreterImpl extends AbstractHandlerBehaviour implements P
                 throw new PiInterpreterException(format(
                         "Output on logical port '%s' not supported", outInst.port()));
             } else if (outInst.port().equals(FLOOD)) {
-                // Create a packet operation for each switch port
+                // Create a packet operation for each switch port and prevent from flooding to input port
+                long input_port = treatment.writeMetadata().metadata();
                 final DeviceService deviceService = handler().get(DeviceService.class);
                 for (Port port : deviceService.getPorts(packet.sendThrough())) {
-                    builder.add(createPiPacketOp(packet.data(), port.number().toLong()));
+                    if (port.number().toLong() != input_port)
+                        builder.add(createPiPacketOp(packet.data(), port.number().toLong()));
                 }
             } else {
                 builder.add(createPiPacketOp(packet.data(), outInst.port().toLong()));
